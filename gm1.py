@@ -1,7 +1,9 @@
+import signal
 import sys, termios, tty
 import term
+import time
 import random 
-from collections import deque
+# from collections import deque
 
 cx, cy = 0, 0
 ox, oy = 0, 0
@@ -11,16 +13,32 @@ OK = 1000
 BOOM = 999
 WIN = 1001
 
-syms = ['·', '1', '2', '3', '4', '5', '6', '7', '8', # #of mines around
-        "#", '¤' , "?", # unknown, flag, QM
-        '*', '*', '^', '*']  # actually mine, mine reveal, candidate
-
 UNKNOWN = 9 # default tile
-FLAG = 10 #flagged bomb
+FLAG = 10 #flagged mine
 QM = 11 #question mark
-MINE = 12
+BLOWN = 12
 
-CANDIDATE = 14
+tiles = [
+    ('·', term.white, term.dim), 
+    ('1', term.dim, term.green), 
+    ('2', term.yellow, term.dim), 
+    ('3', term.dim, term.cyan), 
+    ('4', term.green), 
+    ('5', term.blue), 
+    ('6', term.cyan), 
+    ('7', term.bold, term.magenta), 
+    ('8', term.red, term.bold), # #of mines around
+    ('o', term.white) , # UNKNOWN
+    ('¤', term.red, term.bold) , # marked mine
+    ("?", term.blue, term.bold),  # qmark        
+    ('¤', term.bgred), #blown mine 
+    ('¤', term.blue, term.bold), # reveal unknown
+    ('¤', term.green, term.bold), #reveal marked
+    ('¤', term.red, term.bold), #reveal qm mine
+    ('¤', term.bgred, term.bold)  #reveal blown
+]  
+
+
 
 class World():
     def __init__(self, sx, sy, nmines = 0):
@@ -37,12 +55,11 @@ class World():
         # self.bombs = []
 
     def draw(self):
-        term.clear()
-        term.pos(1, 1)
+        # term.clear()
         for y in range(self.sy):
-            print(''.join([syms[ self.map[x][y] ] 
-                for x in range(self.sx)]))
-
+            term.pos(y+1, 1)
+            for x in range(self.sx):
+                term.write(*tiles[ self.map[x][y] ]) 
 
     def mines_marked(self):
         c = 0 
@@ -52,14 +69,14 @@ class World():
         return c
 
 
-    def reveal(self):
-        term.clear()
-        term.pos(1, 1)
 
+    def reveal(self):
+        # term.clear()
         for y in range(self.sy):
-            print(''.join([syms[ self.map[x][y] + self.mines[x][y]*3   ] 
-                for x in range(self.sx)]))
-        # self.draw()
+            term.pos(y+1, 1)
+            for x in range(self.sx):
+                term.write(*tiles[self.mines[x][y]*4 + self.map[x][y] ]) 
+
 
 
     def ismine(self, x, y):
@@ -97,6 +114,7 @@ class World():
 
     def open(self, x, y):  #try to open a cell
         if self.mines[x][y]:
+            self.map[x][y] = BLOWN
             return BOOM
 
         if self.map[x][y] < UNKNOWN: #already marked
@@ -120,7 +138,10 @@ class World():
         # if nmines == 0:
         qs.add(x*1000 + y)
 
-        while len(qs):
+        #term throws up sometimes in concurrent output, disable timer
+        signal.alarm(0) 
+
+        while len(qs):            
             xy = qs.pop()
             x, y = xy//1000, xy % 1000
             nmines = self.get_count(x, y) 
@@ -129,6 +150,7 @@ class World():
                 for xx, yy in self.get_neighbors_u(x, y):                
                     qs.add(xx*1000+yy)
 
+        signal.alarm(1)  #reenable timer
         return WIN if self.iswin() else OK
 
 
@@ -183,14 +205,14 @@ def escape():
 def cpos():
     global ox, oy
     term.pos(cy + 1, cx +1)
-    term.write(syms[ world.map[cx][cy] ])
+    term.write(* tiles[ world.map[cx][cy] ])
     term.pos(cy + 1, cx +1)
 
     # term.pos(oy+1, ox+1)
-    # term.write(syms[ world.map[ox][oy] ])
+    # term.write(tiles[ world.map[ox][oy] ])
 
     # term.pos(cy + 1, cx +1)
-    # term.write(syms[ world.map[cx][cy] ], 
+    # term.write(tiles[ world.map[cx][cy] ], 
     #     term.blue, term.bold)
 
     # ox, oy = cx, cy
@@ -233,17 +255,35 @@ def toggle():
 
 
 
-def status(text = ''):
-    term.pos(3 + world.sy, 1)
-    print('POS:', cx, cy, 
-            '  |   MINES: %d / %d   |  '%(world.nmines - world.mines_marked(), 
-            world.nmines),  
-            text)
+def status(text = '', *args):
+    term.pos(2 + world.sy, 8)
+    term.write('%3i %3i | ¤: %d / %d | '%(cx, cy, 
+                world.nmines - world.mines_marked(), 
+                world.nmines))
+    term.write(text, *args)  
+            
+    cpos()
+
+def help():
+    term.pos(3 + world.sy, 0)
+    term.write("move: wasd/toggle: SPACE/open: ENTER")    
+
+
+
+
+def timeout_handler(sg, frame):
+    term.pos(2 + world.sy, 1)
+    term.write('t:%i '%(time.time() - starttime))
+    signal.alarm(1)
     cpos()
 
 
+
+
 def gameloop(x = 80, y=30, mm = 40):
-    global cx, cy, redraw
+    global cx, cy, redraw, starttime
+    global world
+
     key = None
     cx, cy = 0, 0
 
@@ -257,32 +297,42 @@ def gameloop(x = 80, y=30, mm = 40):
         ' ': toggle
     }
 
-    global world
     world = World(x, y, mm)
-    world.draw()
-    status('start!')
-    cpos()
 
     result = OK
-    redraw = False
+    redraw = True
     key = ''
 
+    term.clear()
+    help()
+
+    starttime = time.time()
+    signal.signal(signal.SIGALRM, timeout_handler)
+    signal.alarm(1)
+
     while key != '\03' and result == OK:
-        key = getch()
-        if key in actions:
-            result = actions[key]()
         if redraw: 
             world.draw()
             redraw = False
             cpos()
+
         status('your move')
 
+        key = getch()
+        if key in actions:
+            result = actions[key]()
+
+
+    signal.alarm(0)
+
     if result == BOOM:
-        status('BOOM YOU LOSE!')
-        print('YOU LOSE')
+        world.reveal()
+        status('BOOM YOU LOSE!', term.blink, term.bgred, term.bold)
+        term.pos(world.sy +3, 1)
     elif result == WIN:
-        status('YAY YOU WIN')
-        print('YOU WIN WELL DONE!')
+        world.reveal()
+        status('WELL DONE YOU WIN!', term.blink, term.bggreen, term.bold)
+        term.pos(world.sy +3, 1)
 
 
 
