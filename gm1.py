@@ -9,6 +9,8 @@ cx, cy = 0, 0
 ox, oy = 0, 0
 world = None
 
+OFFY = 1
+
 OK = 1000
 BOOM = 999
 WIN = 1001
@@ -54,7 +56,7 @@ class World():
     def draw(self):
         # term.clear()
         for y in range(self.sy):
-            term.pos(y+1, 1)
+            term.pos(y+OFFY+1, 1)
             for x in range(self.sx):
                 term.write(*tiles[ self.map[x][y] ]) 
 
@@ -70,7 +72,7 @@ class World():
     def reveal(self):
         # term.clear()
         for y in range(self.sy):
-            term.pos(y+1, 1)
+            term.pos(y+OFFY+1, 1)
             for x in range(self.sx):
                 term.write(*tiles[self.mines[x][y]*4 + self.map[x][y] ]) 
 
@@ -181,23 +183,17 @@ def getch():   # define non-Windows version
         return ch
 
 
-def escape():
-    print('escape')
 
 def cpos():
     global ox, oy
-    term.pos(cy + 1, cx +1)
-    term.write(* tiles[ world.map[cx][cy] ])
-    term.pos(cy + 1, cx +1)
+    try:
+        term.pos(cy + 1 + OFFY, cx +1)
+        term.write(* tiles[ world.map[cx][cy] ])
+        term.pos(cy + 1 + OFFY, cx +1)
+    except RuntimeError:
+        sleep(0.2)
+        cpos()  #timing glitch in term, just retry
 
-    # term.pos(oy+1, ox+1)
-    # term.write(tiles[ world.map[ox][oy] ])
-
-    # term.pos(cy + 1, cx +1)
-    # term.write(tiles[ world.map[cx][cy] ], 
-    #     term.blue, term.bold)
-
-    # ox, oy = cx, cy
 
 def up():
     global cx, cy
@@ -236,7 +232,7 @@ def toggle():
 
 
 def status(text = '', *args):
-    term.pos(2 + world.sy, 8)
+    term.pos(2 + world.sy + OFFY, 8)
     term.write(term.red + '¤:' + term.white )
     term.write('%d/%d  '%(world.nmines - world.mines_marked(), 
                 world.nmines))
@@ -246,11 +242,11 @@ def status(text = '', *args):
 
 
 def help(text = term.dim + "move: wasd/toggle: SPACE/open: ENTER"):
-    term.pos(3 + world.sy, 0)
+    term.pos(3 + world.sy + OFFY, 0)
     term.write(text)    
 
 def timeout_handler(sg, frame):
-    term.pos(2 + world.sy, 1)
+    term.pos(2 + world.sy + OFFY, 1)
     term.write(term.blue + 't:')
     term.write(term.white + '%i '%(time.time() - starttime))
     signal.alarm(1)
@@ -281,6 +277,7 @@ def gameloop(x = 80, y=30, mm = 40):
     key = ''
 
     term.clear()
+    head()
     help()
 
     starttime = time.time()
@@ -292,7 +289,7 @@ def gameloop(x = 80, y=30, mm = 40):
             world.draw()
             redraw = False
             cpos()
-        status('your move')
+        status('your move   ')
         key = getch()
         if key in actions:
             result = actions[key]()
@@ -305,9 +302,44 @@ def gameloop(x = 80, y=30, mm = 40):
     return result
 
 
+def head():
+    term.pos(1,1)
+    term.write(term.center(term.green + 
+        'SYSWEEPER %ix%i'%(sx, sy)))
+    term.write(term.off)
+
+
+
 def main():
+    import argparse
+
+    global sx, sy, nm
     more = True
     sx, sy, nm = 50, 20, 10
+
+    parser = argparse.ArgumentParser(description='Console minesweeper',
+        argument_default = 'auto')
+    parser.add_argument('size', 
+            # metavar='<size: auto | s | m | l | xl>', 
+            choices = ['s', 'm', 'l', 'xl', 'auto'],
+            default = 'auto',
+            nargs = '?', #make optional
+            help='field size, default: auto fill terminal')
+
+    args = parser.parse_args()
+
+
+    worldsizes = {
+        's': (15, 10, 15),
+        'm': (20, 15, 30),
+        'l': (30, 20, 60),
+        'xl': (80, 30, 250),
+        'auto': (term.getSize()[1], term.getSize()[0]-4, 
+            term.getSize()[1] * term.getSize()[0]//9)
+    }
+    sx, sy, nm = worldsizes[args.size]
+    term.clear()
+    head()
     while more:    
         result = gameloop(sx, sy, nm)
         if result == BREAK:
@@ -324,10 +356,10 @@ def main():
         while key not in 'yYnN\03':
             key = getch()
         more = (key in 'yY')
-        print('')
-        print('k bye')
 
-
+    print('')
+    term.write(term.off)
+    print('k bye')
 
 
 
