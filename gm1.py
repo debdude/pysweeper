@@ -12,6 +12,7 @@ world = None
 OK = 1000
 BOOM = 999
 WIN = 1001
+BREAK = 1002
 
 UNKNOWN = 9 # default tile
 FLAG = 10 #flagged mine
@@ -105,7 +106,7 @@ class World():
             self.nmines += 1
 
     def get_count(self, x, y):
-        return len([_ for xx, yy in self.get_neighbors_u(x, y) 
+        return len([0 for xx, yy in self.get_neighbors_u(x, y) 
             if self.mines[xx][yy]] )
 
     def open(self, x, y):  #try to open a cell
@@ -234,8 +235,6 @@ def toggle():
     return OK 
 
 
-
-
 def status(text = '', *args):
     term.pos(2 + world.sy, 8)
     term.write(term.red + '¤:' + term.white )
@@ -245,23 +244,17 @@ def status(text = '', *args):
             
     cpos()
 
-def help():
+
+def help(text = term.dim + "move: wasd/toggle: SPACE/open: ENTER"):
     term.pos(3 + world.sy, 0)
-    term.write("move: wasd/toggle: SPACE/open: ENTER", 
-        term.dim)    
-
-
-
+    term.write(text)    
 
 def timeout_handler(sg, frame):
     term.pos(2 + world.sy, 1)
     term.write(term.blue + 't:')
     term.write(term.white + '%i '%(time.time() - starttime))
-
     signal.alarm(1)
     cpos()
-
-
 
 
 def gameloop(x = 80, y=30, mm = 40):
@@ -299,33 +292,43 @@ def gameloop(x = 80, y=30, mm = 40):
             world.draw()
             redraw = False
             cpos()
-
         status('your move')
-
         key = getch()
         if key in actions:
             result = actions[key]()
 
 
     signal.alarm(0)
-
-    if result == BOOM:
-        world.reveal()
-        status('BOOM YOU LOSE!', term.blink, term.bgred, term.bold)
-        term.pos(world.sy +3, 1)
-    elif result == WIN:
-        world.reveal()
-        status('WELL DONE YOU WIN!', term.blink, term.bggreen, term.bold)
-        term.pos(world.sy +3, 1)
-
-
+    world.reveal()
+    if key == '\03':
+        return BREAK
+    return result
 
 
 def main():
-    global world
-    world = World(80, 30, 20)
-    world.draw()
-    # gameloop()
+    more = True
+    sx, sy, nm = 50, 20, 10
+    while more:    
+        result = gameloop(sx, sy, nm)
+        if result == BREAK:
+            return 0
+        elif result == BOOM:
+            help(term.blink+term.bgred+term.bold+
+                '       BOOM YOU LOSE! New game? Y/N ' + term.off)
+        elif result == WIN:
+            help(term.blink + term.bggreen + term.bold + 
+                '       WELL DONE YOU WIN. New game? Y/N ' + term.off)
+
+
+        key = ' '
+        while key not in 'yYnN\03':
+            key = getch()
+        more = (key in 'yY')
+        print('')
+        print('k bye')
+
+
+
 
 
 def maptest():
