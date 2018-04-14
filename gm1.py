@@ -23,8 +23,8 @@ tiles = [
     ('1', term.dim, term.green), 
     ('2', term.yellow, term.dim), 
     ('3', term.dim, term.cyan), 
-    ('4', term.green), 
-    ('5', term.blue), 
+    ('4', term.bold, term.green), 
+    ('5', term.bold, term.blue), 
     ('6', term.cyan), 
     ('7', term.bold, term.magenta), 
     ('8', term.red, term.bold), # #of mines around
@@ -46,13 +46,9 @@ class World():
         self.sx = sx
         self.sy = sy
         self.nmines = 0
-        # self.world = [[x*y%4 for y in range(sy)] for x in range(sx)]
         self.map = [[UNKNOWN for y in range(sy)] for x in range(sx)]
         self.mines = [[0 for y in range(sy)] for x in range(sx)]
         self.place_mines(nmines)
-        self.q = deque()
-
-        # self.bombs = []
 
     def draw(self):
         # term.clear()
@@ -86,7 +82,7 @@ class World():
         self.mines[x][y] = 1 
 
 
-    def toggle(self, x, y):
+    def toggle(self, x, y):  #lol fsm
         state = self.map[x][y] 
         if state == UNKNOWN:
             self.map[x][y] = FLAG  
@@ -120,22 +116,7 @@ class World():
         if self.map[x][y] < UNKNOWN: #already marked
             return OK   
 
-        # nmines = self.get_count(x, y) 
-        # self.map[x][y] = nmines
-
-        # if nmines == 0:
-        #     self.q.append([x, y])
-
-        # while len(self.q):
-        #     x, y = self.q.pop()
-        #     nmines = self.get_count(x, y) 
-        #     self.map[x][y] = nmines
-        #     if nmines == 0:
-        #         for xx, yy in self.get_neighbors_uq(x, y):                
-        #             self.q.append([xx, yy])
-        qs = set()
-
-        # if nmines == 0:
+        qs = set()  #set is actually a unique queue
         qs.add(x*1000 + y)
 
         #term throws up sometimes in concurrent output, disable timer
@@ -172,10 +153,10 @@ class World():
         return [[xx,yy] for xx, yy 
             in self.get_neighbors(x,y) if self.map[xx][yy] >= UNKNOWN]
 
-    def get_neighbors_uq(self, x, y):
-        return [[xx,yy] for xx, yy 
-            in self.get_neighbors(x,y) 
-            if (self.map[xx][yy] == UNKNOWN and [xx,yy] not in self.q)]
+    # def get_neighbors_uq(self, x, y):
+    #     return [[xx,yy] for xx, yy 
+    #         in self.get_neighbors(x,y) 
+    #         if (self.map[xx][yy] == UNKNOWN and [xx,yy] not in self.q)]
 
 
     def iswin(self):
@@ -257,8 +238,8 @@ def toggle():
 
 def status(text = '', *args):
     term.pos(2 + world.sy, 8)
-    term.write('%3i %3i | ¤: %d / %d | '%(cx, cy, 
-                world.nmines - world.mines_marked(), 
+    term.write(term.red + '¤:' + term.white )
+    term.write('%d/%d  '%(world.nmines - world.mines_marked(), 
                 world.nmines))
     term.write(text, *args)  
             
@@ -266,14 +247,17 @@ def status(text = '', *args):
 
 def help():
     term.pos(3 + world.sy, 0)
-    term.write("move: wasd/toggle: SPACE/open: ENTER")    
+    term.write("move: wasd/toggle: SPACE/open: ENTER", 
+        term.dim)    
 
 
 
 
 def timeout_handler(sg, frame):
     term.pos(2 + world.sy, 1)
-    term.write('t:%i '%(time.time() - starttime))
+    term.write(term.blue + 't:')
+    term.write(term.white + '%i '%(time.time() - starttime))
+
     signal.alarm(1)
     cpos()
 
