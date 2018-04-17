@@ -35,7 +35,7 @@ tiles = [
     ('¤', term.red, term.bold) , # marked mine
     ("?", term.blue, term.bold),  # qmark        
     ('¤', term.bgred), #blown mine 
-    ('¤', term.blue, term.bold), # reveal unknown
+    ('¤', term.bold, term.red), # reveal unknown
     ('¤', term.green, term.bold), #reveal marked
     ('¤', term.red, term.bold), #reveal qm mine
     ('¤', term.bgred, term.bold)  #reveal blown
@@ -275,7 +275,7 @@ def cpos():
 def head():
     term.pos(1,1)
     term.write(term.center(term.green + 
-        'SYSWEEPER %ix%i'%(sx, sy)))
+        'PYSWEEPER %ix%i'%(sx, sy)))
     term.write(term.off)
 
 # /display
