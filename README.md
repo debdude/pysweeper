@@ -1,6 +1,11 @@
 # pysweeper
 
-A simple console minesweeper clone as a python excercise. Needs python3 and py-term to run. 
+A simple console minesweeper clone as a python excercise. Needs python3 and py-term to run. Should run in most Linux and Mac consoles.
+
+
+## Screenshot
+
+![pysweeper screenshot](/../scr/pysweeper.png?raw=true "Console minesweeper")
 
 ## Installation
 
