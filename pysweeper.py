@@ -130,7 +130,7 @@ class World():
             #add remaining neighbors to q
             if len(flagged_ns) >= self.map[x][y]: 
                 qs = set([xx*1000+yy for xx,yy in unknown_ns])
-                debug(str(qs))
+                # debug(str(qs))
             else:
                 #nope, cannot safely open around
                 return OK   
@@ -153,9 +153,7 @@ class World():
             nmines = self.get_count(x, y) 
             self.map[x][y] = nmines
             if nmines == 0:
-                for xx, yy in self.get_neighbors_u(x, y):   
-                    
-                    
+                for xx, yy in self.get_neighbors_u(x, y):                       
                     qs.add(xx*1000+yy)
 
         signal.alarm(1)  #reenable timer
